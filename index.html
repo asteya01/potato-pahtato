@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#120b05" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>Potato Pahtato</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='17' rx='13' ry='10' fill='%23c99555'/%3E%3Ccircle cx='12' cy='14' r='2' fill='%23fff'/%3E%3Ccircle cx='20' cy='14' r='2' fill='%23fff'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -53,6 +57,21 @@
   </div>
 </div>
 
+<div id="touch" aria-hidden="true">
+  <div id="t-move" class="tzone"></div>
+  <div id="t-look" class="tzone"></div>
+  <div id="t-stick"><div id="t-knob"></div></div>
+  <div id="t-btns">
+    <button class="tbtn" id="t-fire" type="button"><span>FIRE</span></button>
+    <button class="tbtn" id="t-jump" type="button"><span>JUMP</span></button>
+    <button class="tbtn" id="t-reload" type="button"><span>RELOAD</span></button>
+    <button class="tbtn" id="t-storm" type="button"><span>STORM</span></button>
+    <button class="tbtn tiny" id="t-pause" type="button" aria-label="Pause"><span>❚❚</span></button>
+    <button class="tbtn tiny" id="t-tag" type="button" aria-label="Show nametag"><span>🥔</span></button>
+  </div>
+</div>
+<div id="rotate"><div><b>↻</b><br>Rotate your phone sideways to play</div></div>
+
 <div id="fps" class="hidden">0 fps</div>
 
 <div id="main" class="overlay screen">
@@ -64,6 +83,7 @@
       <button class="mbtn" id="m-settings">Settings</button>
       <button class="mbtn" id="m-controls">Controls</button>
       <button class="mbtn" id="m-howto">How to play</button>
+      <button class="mbtn touch-only" id="m-full">Fullscreen</button>
     </nav>
     <div class="profile">
       <div class="nametag"><span class="rank" id="p-rank">Spud Scout</span><b id="p-name">Chef</b></div>
@@ -116,7 +136,7 @@
 
 <div id="shop" class="hidden">
   <h2>Pick an upgrade</h2>
-  <p class="shop-sub">Press <kbd>1</kbd> <kbd>2</kbd> or <kbd>3</kbd></p>
+  <p class="shop-sub" id="shop-sub">Press <kbd>1</kbd> <kbd>2</kbd> or <kbd>3</kbd></p>
   <div class="cards" id="shop-cards"></div>
 </div>
 

@@ -1,4 +1,5 @@
 // Settings, key bindings and the player's saved profile. Everything lives in localStorage.
+import { TOUCH } from './device.js';
 const KEY = 'potato-pahtato-settings-v2';
 const PKEY = 'potato-pahtato-profile-v2';
 
@@ -34,6 +35,7 @@ const DEFAULTS = {
   master: 70, sfx: 100, music: 45,
   sens: 100, invertY: false, fov: 75, shake: true, bob: true, dmgNumbers: true,
   crossColor: '#ffffff', crossSize: 100,
+  touchSize: 100, lefty: false,
 };
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -42,6 +44,7 @@ function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { /* ignore */ }
   const s = { ...DEFAULTS, ...saved };
+  if (TOUCH && !Object.keys(saved).length) Object.assign(s, PRESETS.low, { quality: 'low', renderScale: 75 }); // phones start on light graphics
   s.binds = clone(DEFAULT_BINDS);
   if (saved.binds) for (const a of Object.keys(DEFAULT_BINDS)) if (Array.isArray(saved.binds[a])) s.binds[a] = [saved.binds[a][0] || '', saved.binds[a][1] || ''];
   s.name = cleanName(s.name);

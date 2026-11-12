@@ -1,6 +1,7 @@
 // Menus: screen switching, the settings panel (graphics / audio / gameplay / controls), name + rank.
 import { S, save, applyPreset, resetSettings, PRESETS, DEFAULT_BINDS, ACTION_LABELS, resetBinds, codeLabel, setName, cleanName, profile, rankFor, nextRank } from './settings.js';
 import { sfx } from './audio.js';
+import { TOUCH } from './device.js';
 
 const $ = (id) => document.getElementById(id);
 let hooks = {};
@@ -35,6 +36,8 @@ const SCHEMA = {
     { k: 'dmgNumbers', type: 'toggle', label: 'Floating damage numbers' },
     { k: 'crossColor', type: 'color', label: 'Crosshair color' },
     { k: 'crossSize', type: 'range', min: 50, max: 200, step: 10, label: 'Crosshair size', fmt: (v) => v + '%' },
+    { k: 'touchSize', type: 'range', min: 70, max: 140, step: 5, label: 'Touch button size', fmt: (v) => v + '%', touchOnly: true },
+    { k: 'lefty', type: 'toggle', label: 'Left-handed layout', help: 'Swaps the joystick and the buttons.', touchOnly: true },
   ],
   Controls: [],
 };
@@ -221,7 +224,7 @@ export function renderTab(name) {
   body.innerHTML = '';
   document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'));
   if (name === 'Controls') controlsTab(body);
-  else for (const def of SCHEMA[name]) body.appendChild(row(def));
+  else for (const def of SCHEMA[name]) if (!def.touchOnly || TOUCH) body.appendChild(row(def));
 }
 
 export function openSettings(tab = 'Graphics', from = 'main') {
@@ -234,6 +237,7 @@ export function initUI(h) {
   hooks = h;
   const tabs = $('tabs');
   for (const name of Object.keys(SCHEMA)) {
+    if (TOUCH && name === 'Controls') continue; // no keyboard on a phone
     const t = document.createElement('button');
     t.className = 'tab'; t.type = 'button'; t.textContent = name; t.dataset.tab = name; t.setAttribute('role', 'tab');
     t.addEventListener('click', () => { cancelRebind(); renderTab(name); sfx.click(); });

@@ -8,6 +8,8 @@ import { createEnemy, TYPES, BOSSES } from './enemies.js';
 import { initAudio, sfx, applyVolumes, startMusic, setMusicIntensity } from './audio.js';
 import { S, profile, saveProfile, rankFor } from './settings.js';
 import { initUI, showScreen, refreshProfile, isRebinding } from './ui.js';
+import { TOUCH } from './device.js';
+import { T, resetTouch, initTouch, applyTouchPrefs } from './touch.js';
 
 const $ = (id) => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -65,6 +67,7 @@ function applyAll() {
   document.documentElement.style.setProperty('--cross-size', S.crossSize / 100);
   applyVolumes();
   $('name-input').value = S.name;
+  applyTouchPrefs();
   refreshProfile();
 }
 window.addEventListener('resize', resize);
@@ -701,7 +704,9 @@ function openShop() {
     box.appendChild(c);
   });
   if (!G.shopOptions.length) { G.waveState = 'intermission'; G.interT = 2; return; }
+  $('shop-sub').textContent = TOUCH ? 'Tap an upgrade' : 'Press 1, 2 or 3';
   $('shop').classList.remove('hidden');
+  resetTouch();
   banner('WAVE CLEARED', '+20 HP. Choose an upgrade.');
 }
 
@@ -721,7 +726,7 @@ function pickUpgrade(i) {
 }
 
 function victory() {
-  G.state = 'victory';
+  G.state = 'victory'; resetTouch();
   G.waveState = 'idle';
   mouse.down = false;
   document.exitPointerLock?.();
@@ -734,31 +739,38 @@ function victory() {
 // ---------- player movement ----------
 function updatePlayer(dt) {
   const p = G.p;
-  const f = (isDown('forward') ? 1 : 0) - (isDown('back') ? 1 : 0);
-  const s = (isDown('right') ? 1 : 0) - (isDown('left') ? 1 : 0);
-  p.sprint = isDown('sprint');
+  const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+  const f = clamp1((isDown('forward') ? 1 : 0) - (isDown('back') ? 1 : 0) + T.y);
+  const s = clamp1((isDown('right') ? 1 : 0) - (isDown('left') ? 1 : 0) + T.x);
+  p.sprint = isDown('sprint') || T.sprint;
+  if (T.lookX || T.lookY) {
+    const k = 0.0042 * (S.sens / 100);
+    p.yaw -= T.lookX * k;
+    p.pitch = Math.max(-1.45, Math.min(1.45, p.pitch - T.lookY * k * (S.invertY ? -1 : 1)));
+    T.lookX = T.lookY = 0;
+  }
   const speed = (p.sprint && f > 0 ? 9 : 6) * (1 + 0.08 * lvl('speed'));
   const sy = Math.sin(p.yaw), cy = Math.cos(p.yaw);
   let mx = -sy * f + cy * s;
   let mz = -cy * f - sy * s;
   const len = Math.hypot(mx, mz);
-  if (len > 0) { mx /= len; mz /= len; }
+  if (len > 1) { mx /= len; mz /= len; }
   p.pos.x += mx * speed * dt;
   p.pos.z += mz * speed * dt;
 
-  if (isDown('jump') && p.pos.y === 0) p.vy = 7.5;
+  if ((isDown('jump') || T.jump) && p.pos.y === 0) p.vy = 7.5;
   p.vy -= 22 * dt;
   p.pos.y += p.vy * dt;
   if (p.pos.y <= 0) { p.pos.y = 0; p.vy = 0; }
   resolveCircle(p.pos, 0.42, OBS, p.pos.y);
 
-  if (len > 0 && p.pos.y === 0) p.bob += dt * (p.sprint ? 13 : 9);
+  if (len > 0.05 && p.pos.y === 0) p.bob += dt * (p.sprint ? 13 : 9);
 
   p.fireCd = Math.max(0, p.fireCd - dt);
   p.boost = Math.max(0, p.boost - dt);
   p.hurtT = Math.max(0, p.hurtT - dt);
   if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { p.ammo = magSize(); p.reload = 0; } }
-  if (isDown('fire')) fire();
+  if (isDown('fire') || T.fire) fire();
 }
 
 function updateCamera(dt) {
@@ -793,6 +805,7 @@ function updateGun(dt) {
 
 // ---------- HUD ----------
 const radar = $('radar').getContext('2d');
+const stormBtn = $('t-storm');
 const H = {
   wave: $('h-wave'), score: $('h-score'), kills: $('h-kills'),
   hpFill: $('hp-fill'), hpText: $('hp-text'), hpWrap: $('hp-wrap'),
@@ -840,6 +853,8 @@ function updateHud() {
   H.ammo.classList.toggle('low', p.ammo <= 5);
   H.ultFill.style.width = p.ult + '%';
   H.ultWrap.classList.toggle('ready', p.ult >= 100);
+  stormBtn.style.setProperty('--c', p.ult);
+  stormBtn.classList.toggle('ready', p.ult >= 100);
   const keyName = S.binds.storm.find((c) => c) ? S.binds.storm.filter((c) => c).map((c) => (c.startsWith('Mouse') ? ['LMB', 'MMB', 'RMB'][+c.slice(5)] || c : c.replace('Key', ''))).join('/') : '?';
   H.ultText.textContent = p.ult >= 100 ? `PEEL STORM READY (${keyName})` : 'PEEL STORM ' + Math.floor(p.ult) + '%';
   const mult = Math.min(5, 1 + Math.floor((G.combo - 1) / 3));
@@ -929,7 +944,8 @@ function begin(withLock = true) {
   initAudio(); startMusic();
   clearMenuPotatoes();
   resetGame();
-  G.noLock = !withLock;
+  G.noLock = !withLock || TOUCH;
+  resetTouch();
   showScreen(null);
   $('hud').classList.remove('hidden');
   G.state = 'playing';
@@ -938,7 +954,7 @@ function begin(withLock = true) {
 }
 
 function toMenu() {
-  mouse.down = false;
+  mouse.down = false; resetTouch();
   document.exitPointerLock?.();
   resetGame();
   G.state = 'menu';
@@ -970,7 +986,7 @@ function statsHtml() {
 }
 
 function gameOver() {
-  G.state = 'over';
+  G.state = 'over'; resetTouch();
   sfx.over();
   document.exitPointerLock?.();
   mouse.down = false;
@@ -982,9 +998,9 @@ function gameOver() {
 }
 
 function pause() {
-  if (G.state !== 'playing' || G.noLock) return;
+  if (G.state !== 'playing' || (G.noLock && !TOUCH)) return;
   G.state = 'paused';
-  mouse.down = false; down.clear();
+  mouse.down = false; down.clear(); resetTouch();
   showScreen('pause');
 }
 function resume() {
@@ -1010,6 +1026,13 @@ $('endless').addEventListener('click', () => {
 });
 
 const mouse = { down: false };
+initTouch({ onReload: () => G.state === 'playing' && startReload(), onStorm: () => G.state === 'playing' && peelStorm(), onPause: pause, onNametag: () => toggleNametag() });
+$('m-full').addEventListener('click', async () => {
+  try { await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); await screen.orientation?.lock?.('landscape'); } catch { /* not supported, e.g. iPhone Safari */ }
+});
+function checkPortrait() { if (TOUCH && G.state === 'playing' && window.innerHeight > window.innerWidth) pause(); }
+window.addEventListener('resize', checkPortrait);
+document.addEventListener('visibilitychange', () => { if (document.hidden && TOUCH) pause(); });
 document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement) pause(); });
 document.addEventListener('mousemove', (e) => {
   if (G.state !== 'playing' || (!document.pointerLockElement && !G.noLock)) return;
@@ -1019,7 +1042,7 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('mousedown', (e) => {
   initAudio(); startMusic();
-  if (isRebinding()) return;
+  if (isRebinding() || TOUCH) return;
   if (G.state !== 'playing' || e.target.closest?.('.ucard')) return;
   const code = 'Mouse' + e.button;
   down.add(code);
@@ -1055,8 +1078,11 @@ document.addEventListener('keyup', (e) => down.delete(e.code));
 window.addEventListener('blur', () => { down.clear(); mouse.down = false; pause(); });
 
 // ---------- main loop ----------
+let wasPlaying = null;
 function step(dt) {
   G.t += dt;
+  const playing = G.state === 'playing';
+  if (playing !== wasPlaying) { wasPlaying = playing; document.body.classList.toggle('playing', playing); }
   if (G.state === 'playing') {
     G.time += dt;
     updatePlayer(dt);

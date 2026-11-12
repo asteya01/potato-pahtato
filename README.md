@@ -33,3 +33,6 @@ Tap F5 (rebindable in Settings > Controls, "Show glass nametag") to show or hide
     npx wrangler login      # only needed once
     npm run deploy
 Your site goes live at https://potato-pahtato.<your-subdomain>.workers.dev
+
+## Playing on a phone
+Open the site on your phone and turn it sideways. Left half of the screen: touch and drag for the joystick (push all the way for sprint). Right half: drag to look. Buttons: FIRE (hold), JUMP, RELOAD, STORM (ring fills as it charges), pause, nametag. Settings has touch button size and a left-handed layout. Phones start on Low graphics; raise it in Settings if it runs smoothly.
