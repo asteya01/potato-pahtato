@@ -39,6 +39,11 @@ const SCHEMA = {
     { k: 'touchSize', type: 'range', min: 70, max: 140, step: 5, label: 'Touch button size', fmt: (v) => v + '%', touchOnly: true },
     { k: 'lefty', type: 'toggle', label: 'Left-handed layout', help: 'Swaps the joystick and the buttons.', touchOnly: true },
   ],
+  Online: [
+    { type: 'note', text: 'Your chef name is posted with your score on the public leaderboard. Anonymous stats never include your name or your IP address.' },
+    { k: 'postScores', type: 'toggle', label: 'Post my scores to the leaderboard' },
+    { k: 'telemetry', type: 'toggle', label: 'Share anonymous stats', help: 'Waves reached, upgrades picked, frame rate. Helps balance the game.' },
+  ],
   Controls: [],
 };
 
@@ -224,7 +229,11 @@ export function renderTab(name) {
   body.innerHTML = '';
   document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'));
   if (name === 'Controls') controlsTab(body);
-  else for (const def of SCHEMA[name]) if (!def.touchOnly || TOUCH) body.appendChild(row(def));
+  else for (const def of SCHEMA[name]) {
+    if (def.touchOnly && !TOUCH) continue;
+    if (def.type === 'note') { const p = document.createElement('p'); p.className = 'note'; p.textContent = def.text; body.appendChild(p); continue; }
+    body.appendChild(row(def));
+  }
 }
 
 export function openSettings(tab = 'Graphics', from = 'main') {

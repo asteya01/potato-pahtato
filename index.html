@@ -82,6 +82,7 @@
       <button class="mbtn primary" id="play">Play</button>
       <button class="mbtn" id="m-settings">Settings</button>
       <button class="mbtn" id="m-controls">Controls</button>
+      <button class="mbtn" id="m-board">Leaderboard</button>
       <button class="mbtn" id="m-howto">How to play</button>
       <button class="mbtn touch-only" id="m-full">Fullscreen</button>
     </nav>
@@ -91,6 +92,22 @@
         <input id="name-input" type="text" maxlength="14" autocomplete="off" spellcheck="false" />
       </label>
       <div class="p-stats" id="p-stats"></div>
+    </div>
+  </div>
+  <div class="version" id="version"></div>
+</div>
+
+<div id="board" class="overlay screen hidden">
+  <div class="panel wide">
+    <h2>Leaderboard</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab" type="button" role="tab" data-bt="top" aria-selected="true">Top chefs</button>
+      <button class="tab" type="button" role="tab" data-bt="stats" aria-selected="false">Game stats</button>
+    </div>
+    <div class="tab-body" id="board-body"></div>
+    <div class="panel-foot">
+      <button class="mbtn" id="b-refresh" type="button">Refresh</button>
+      <button class="mbtn primary" id="b-back" type="button">Back</button>
     </div>
   </div>
 </div>
@@ -145,8 +162,10 @@
     <h2>You got mashed!</h2>
     <div class="stats" id="over-stats"></div>
     <p class="best" id="over-best"></p>
+    <p class="best" id="over-board"></p>
     <div class="row">
       <button class="mbtn primary" id="again">Peel again</button>
+      <button class="mbtn" id="o-board">Leaderboard</button>
       <button class="mbtn" id="o-menu">Main menu</button>
     </div>
   </div>
@@ -157,8 +176,10 @@
     <h2>Kitchen cleared!</h2>
     <p class="tag win">The Russet Emperor has been peeled.</p>
     <div class="stats" id="win-stats"></div>
+    <p class="best" id="win-board"></p>
     <div class="row">
       <button class="mbtn primary" id="endless">Keep going (endless)</button>
+      <button class="mbtn" id="v-board">Leaderboard</button>
       <button class="mbtn" id="v-menu">Main menu</button>
     </div>
   </div>

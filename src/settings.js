@@ -36,6 +36,7 @@ const DEFAULTS = {
   sens: 100, invertY: false, fov: 75, shake: true, bob: true, dmgNumbers: true,
   crossColor: '#ffffff', crossSize: 100,
   touchSize: 100, lefty: false,
+  postScores: true, telemetry: true,
 };
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }

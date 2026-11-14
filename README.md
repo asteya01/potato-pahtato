@@ -36,3 +36,20 @@ Your site goes live at https://potato-pahtato.<your-subdomain>.workers.dev
 
 ## Playing on a phone
 Open the site on your phone and turn it sideways. Left half of the screen: touch and drag for the joystick (push all the way for sprint). Right half: drag to look. Buttons: FIRE (hold), JUMP, RELOAD, STORM (ring fills as it charges), pause, nametag. Settings has touch button size and a left-handed layout. Phones start on Low graphics; raise it in Settings if it runs smoothly.
+
+## Leaderboard, stats and privacy (v1.5)
+
+- **Leaderboard**: main menu > Leaderboard. Your best score per chef name is posted after every run (top 25 shown). Tabs: *Top chefs* and *Game stats*.
+- **Stats** are anonymous: waves reached, upgrades picked, frame rate, device type. No name, no IP address is stored. Raw numbers: `/api/stats`.
+- **Opt out** any time in Settings > Online (post scores / share anonymous stats).
+- **Build stamp** in the bottom-right of the main menu (`v1.5.0 · built ...`) tells you which deploy is live.
+- **Moderation**: `npx wrangler d1 execute potato-pahtato --remote --command "DELETE FROM scores WHERE id=N"`
+
+### First-time backend setup
+```
+npx wrangler d1 create potato-pahtato     # say "no" if asked to edit config
+npm run set-db-id
+npm run db:remote
+npm run deploy
+```
+Later updates: just `npm run deploy`. Local test: `npm run test:api` (with `npm run dev:api` running).

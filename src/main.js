@@ -10,6 +10,10 @@ import { S, profile, saveProfile, rankFor } from './settings.js';
 import { initUI, showScreen, refreshProfile, isRebinding } from './ui.js';
 import { TOUCH } from './device.js';
 import { T, resetTouch, initTouch, applyTouchPrefs } from './touch.js';
+import { UPGRADES } from './upgrades.js';
+import { track } from './telemetry.js';
+import { initBoard, submitRun } from './leaderboard.js';
+import { VERSION, buildLabel } from './version.js';
 
 const $ = (id) => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -123,19 +127,7 @@ const ribbonMats = new Map();
 const ribbonMat = (c) => { if (!ribbonMats.has(c)) ribbonMats.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, side: THREE.DoubleSide })); return ribbonMats.get(c); };
 
 // ---------- upgrades ----------
-const UPGRADES = [
-  { id: 'dmg',    icon: '🔪', name: 'Sharper Blade',  desc: '+20% peel damage.', max: 5 },
-  { id: 'mag',    icon: '📦', name: 'Big Magazine',   desc: '+6 peels per magazine.', max: 4 },
-  { id: 'reload', icon: '⚡', name: 'Quick Hands',    desc: 'Reload 25% faster.', max: 2 },
-  { id: 'rate',   icon: '🌀', name: 'Rapid Peel',     desc: 'Fire 15% faster.', max: 4 },
-  { id: 'hp',     icon: '🧈', name: 'Thick Skin',     desc: '+25 max health and heal 25.', max: 4 },
-  { id: 'speed',  icon: '👟', name: 'Spud Sprint',    desc: 'Move 8% faster.', max: 3 },
-  { id: 'pierce', icon: '🗡️', name: 'Double Slice',   desc: 'Peels pass through 1 extra enemy.', max: 2 },
-  { id: 'storm',  icon: '🌪️', name: 'Storm Surge',    desc: 'Peel Storm charges 35% faster.', max: 3 },
-  { id: 'steal',  icon: '💚', name: 'Butter Fingers', desc: 'Heal 3 HP on every kill.', max: 3 },
-  { id: 'luck',   icon: '🍀', name: 'Lucky Spud',     desc: '50% more pickup drops.', max: 3 },
-  { id: 'crit',   icon: '🎯', name: 'Critical Peel',  desc: '+12% chance to hit for 2.5x damage.', max: 4 },
-];
+
 let U = {};
 const lvl = (id) => U[id] || 0;
 const baseMag = 20;
@@ -655,6 +647,7 @@ function composeWave(n) {
 
 function startWave(n) {
   G.wave = n;
+  track('wave_reached', { wave: n });
   G.toSpawn = composeWave(n);
   G.spawnT = 1.2;
   G.waveState = 'spawning';
@@ -714,6 +707,7 @@ function pickUpgrade(i) {
   const u = G.shopOptions[i];
   if (!u || G.waveState !== 'shop') return;
   U[u.id] = lvl(u.id) + 1;
+  track('upgrade_picked', { id: u.id, level: U[u.id], wave: G.wave });
   const p = G.p;
   if (u.id === 'hp') { p.maxHp += 25; p.hp = Math.min(p.maxHp, p.hp + 25); }
   if (u.id === 'mag') p.ammo = magSize();
@@ -731,8 +725,9 @@ function victory() {
   mouse.down = false;
   document.exitPointerLock?.();
   sfx.win();
-  finishRun(true);
+  finishRun('won');
   $('win-stats').innerHTML = statsHtml();
+  postRun($('win-board'), true);
   setTimeout(() => { if (G.state === 'victory') { $('hud').classList.add('hidden'); showScreen('victory'); } }, 1200);
 }
 
@@ -950,6 +945,7 @@ function begin(withLock = true) {
   $('hud').classList.remove('hidden');
   G.state = 'playing';
   if (withLock) lock();
+  track('run_start', { touch: TOUCH });
   startWave(1);
 }
 
@@ -966,9 +962,11 @@ function toMenu() {
   showScreen('main');
 }
 
-function finishRun(won = false) {
+function finishRun(reason = 'dead') {
+  const won = reason === 'won';
   if (G.runCounted) return;
   G.runCounted = true;
+  track('run_end', { wave: G.wave, score: G.score, kills: G.kills, seconds: Math.round(G.time), won: won ? 1 : 0, reason, endless: G.endless ? 1 : 0 });
   profile.runs++;
   profile.kills += G.kills;
   profile.bestScore = Math.max(profile.bestScore, G.score);
@@ -985,14 +983,28 @@ function statsHtml() {
   return cell(G.score.toLocaleString(), 'Score') + cell(G.wave, 'Wave reached') + cell(G.kills, 'Spuds peeled') + cell(acc + '%', 'Accuracy') + cell('x' + Math.min(5, 1 + Math.floor((G.bestCombo - 1) / 3)) + ' · ' + G.bestCombo, 'Best combo') + cell(fmtTime(G.time), 'Time survived');
 }
 
+async function postRun(out, won) {
+  if (!S.postScores) { out.textContent = 'Score posting is off (Settings > Online).'; return; }
+  if (G.kills < 1) { out.textContent = ''; return; }
+  out.textContent = 'Posting your score…';
+  const accuracy = G.fired ? Math.min(100, Math.round((G.landed / G.fired) * 100)) : 0;
+  try {
+    const r = await submitRun({ name: S.name, score: G.score, wave: G.wave, kills: G.kills, seconds: Math.round(G.time), accuracy, won, device: TOUCH ? 'touch' : 'desktop', version: VERSION });
+    out.textContent = `${r.personalBest ? 'Personal best! ' : ''}You are #${r.rank} of ${r.players} chefs on the leaderboard.`;
+  } catch (e) {
+    out.textContent = `Couldn't post to the leaderboard: ${e.message}`;
+  }
+}
+
 function gameOver() {
   G.state = 'over'; resetTouch();
   sfx.over();
   document.exitPointerLock?.();
   mouse.down = false;
   const prevBest = profile.bestScore;
-  finishRun(false);
+  finishRun('dead');
   $('over-stats').innerHTML = statsHtml();
+  postRun($('over-board'), false);
   $('over-best').textContent = G.score > prevBest ? `New personal best, ${S.name}!` : `Best: ${profile.bestScore.toLocaleString()}`;
   setTimeout(() => { if (G.state === 'over') { $('hud').classList.add('hidden'); $('shop').classList.add('hidden'); showScreen('over'); } }, 900);
 }
@@ -1016,7 +1028,7 @@ initUI({ onApply: (k) => { applyAll(); if (k === 'binds') down.clear(); } });
 $('play').addEventListener('click', () => begin(true));
 $('again').addEventListener('click', () => begin(true));
 $('resume').addEventListener('click', resume);
-$('p-quit').addEventListener('click', () => { finishRun(false); toMenu(); });
+$('p-quit').addEventListener('click', () => { finishRun('quit'); toMenu(); });
 $('o-menu').addEventListener('click', toMenu);
 $('v-menu').addEventListener('click', toMenu);
 $('endless').addEventListener('click', () => {
@@ -1111,22 +1123,28 @@ function step(dt) {
 }
 
 let last = performance.now();
-let fpsAcc = 0, fpsN = 0;
+let fpsAcc = 0, fpsN = 0, perfT = 0, perfN = 0, perfSent = 0;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   step(dt);
+  if (G.state === 'playing') { perfT += dt; perfN++; if (perfT >= 20 && perfSent < 8) { track('perf', { fps: Math.round(perfN / perfT), quality: S.quality }); perfSent++; perfT = 0; perfN = 0; } }
   if (S.bloom) composer.render(dt); else renderer.render(scene, camera);
   if (S.fps) { fpsAcc += dt; fpsN++; if (fpsAcc >= 0.5) { $('fps').textContent = Math.round(fpsN / fpsAcc) + ' fps'; fpsAcc = 0; fpsN = 0; } }
   requestAnimationFrame(loop);
 }
 
 applyAll();
+initBoard();
+$('version').textContent = buildLabel();
+track('session_start', { quality: S.quality, touch: TOUCH, w: Math.round(window.innerWidth / 100) * 100 });
+let errCount = 0;
+window.addEventListener('error', (e) => { if (errCount++ < 3) track('error', { msg: String(e.message).slice(0, 150) }); });
 spawnMenuPotatoes();
 requestAnimationFrame(loop);
 
 // hooks for automated tests and debugging
-window.__game = {
+window.__game = { hurtPlayer,
   G, S, begin, toMenu, step, fire, peelStorm, addEnemy, damageEnemy, pickUpgrade, openShop, startWave, pause, resume,
   render: () => { if (S.bloom) composer.render(0.016); else renderer.render(scene, camera); },
   down, camera, UPG: () => U, rankFor, toggleNametag,

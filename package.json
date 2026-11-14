@@ -7,7 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && wrangler deploy"
+    "deploy": "vite build && wrangler deploy",
+    "set-db-id": "node scripts/set-database-id.mjs",
+    "db:local": "wrangler d1 migrations apply potato-pahtato --local",
+    "db:remote": "wrangler d1 migrations apply potato-pahtato --remote",
+    "dev:api": "wrangler dev --port 8787",
+    "test:api": "node tests/api-check.mjs"
   },
   "dependencies": {
     "three": "^0.187.0"
